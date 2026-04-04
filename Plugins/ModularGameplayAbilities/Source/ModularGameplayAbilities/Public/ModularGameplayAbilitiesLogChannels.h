@@ -1,0 +1,6 @@
+﻿// Copyright Chronicler.
+
+#pragma once
+
+MODULARGAMEPLAYABILITIES_API DECLARE_LOG_CATEGORY_EXTERN(LogModularGameplayAbilities, Log, All);
+MODULARGAMEPLAYABILITIES_API DECLARE_LOG_CATEGORY_EXTERN(LogModularGameplayCues, Log, All);
