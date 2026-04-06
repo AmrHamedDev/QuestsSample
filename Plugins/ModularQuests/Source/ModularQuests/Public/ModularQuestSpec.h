@@ -134,6 +134,8 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
 	/** Returns true if this quest is active in any way */
 	bool IsActive() const;
+
+	FString GetDebugString() const;
 	
 public:
 	/** Handle for outside sources to refer to this spec by */

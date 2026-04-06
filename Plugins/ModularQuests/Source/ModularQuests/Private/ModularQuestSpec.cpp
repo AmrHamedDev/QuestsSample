@@ -64,5 +64,10 @@ UModularQuest* FModularQuestSpec::GetFirstInstance() const
 
 bool FModularQuestSpec::IsActive() const
 {
-	return Quest != nullptr && Quest->IsActive() && ActiveCount > 0;
+	return Quest != nullptr && ActiveCount > 0;
+}
+
+FString FModularQuestSpec::GetDebugString() const
+{
+	return FString::Printf(TEXT("(%s)"), *GetNameSafe(Quest));
 }

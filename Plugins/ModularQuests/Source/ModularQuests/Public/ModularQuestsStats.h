@@ -8,3 +8,4 @@
 DECLARE_STATS_GROUP(TEXT("ModularQuests"), STATGROUP_ModularQuests, STATCAT_Advanced);
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FindQuestSpecFromHandle"), STAT_FindQuestSpecFromHandle, STATGROUP_ModularQuests, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("TickQuestComponent"), STAT_TickQuestComponent, STATGROUP_ModularQuests, );

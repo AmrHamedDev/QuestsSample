@@ -300,6 +300,22 @@ protected:
 	/** This Quest is blocked if the activating actor/component has any of these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="OwnedTagsCategory"))
 	FGameplayTagContainer ActivationBlockedTags;
+
+	/** This Condition can only be activated if the source actor/component has all of these tags */
+	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="SourceTagsCategory"))
+	FGameplayTagContainer SourceRequiredTags;
+
+	/** This Condition is blocked if the source actor/component has any of these tags */
+	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="SourceTagsCategory"))
+	FGameplayTagContainer SourceBlockedTags;
+	
+	/** This Condition can only be activated if the target actor/component has all of these tags */
+	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="TargetTagsCategory"))
+	FGameplayTagContainer TargetRequiredTags;
+
+	/** This Condition is blocked if the target actor/component has any of these tags */
+	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="TargetTagsCategory"))
+	FGameplayTagContainer TargetBlockedTags;
 	
 private:
 	/** The current state of this quest. */

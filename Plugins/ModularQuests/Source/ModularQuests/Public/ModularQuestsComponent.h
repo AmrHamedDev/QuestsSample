@@ -36,7 +36,11 @@ class MODULARQUESTS_API UModularQuestsComponent : public UActorComponent, public
 public:	
 	UModularQuestsComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	//  ActorComponent overrides
 	virtual void InitializeComponent() override;
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void OnRegister() override;
+	//  ~ActorComponent overrides
 
 protected:
 	/** The quests we have been granted, whether active or in-active. */
@@ -186,20 +190,23 @@ public:
 	//  Helpers/Accessors
 	// ----------------------------------------------------------------------------------------------------------------
 
-	/** Returns the list of all activatable quests. Read-only. */
-	const TArray<FModularQuestSpec>& GetActivatableQuests() const
+	/** Returns the list of all available quests. Read-only. */
+	const TArray<FModularQuestSpec>& GetAvailableQuests() const
 	{
 		return AvailableQuests;
 	}
 
 	/** Returns the list of all activatable quests. */
-	TArray<FModularQuestSpec>& GetActivatableAbilities()
+	TArray<FModularQuestSpec>& GetMutableAvailableQuests()
 	{
 		return AvailableQuests;
 	}
 	
 	/** Returns a quest spec from a handle. */
 	FModularQuestSpec* FindQuestSpecFromHandle(FModularQuestSpecHandle Handle, EConsiderQuestPending ConsiderPending = EConsiderQuestPending::PendingRemove) const;
+
+	/** Returns a quest spec corresponding to given quest class. */
+	FModularQuestSpec* FindQuestSpecFromClass(const TSubclassOf<UModularQuest>& QuestClass) const;
 
 	static FModularQuestSpec BuildQuestSpecFromClass(const TSubclassOf<UModularQuest>& QuestClass);
 

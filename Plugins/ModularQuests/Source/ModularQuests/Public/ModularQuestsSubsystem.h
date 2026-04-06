@@ -5,8 +5,11 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "ModularQuestsModule.h"
+#include "ModularQuestsTypes.h"
 
 #include "ModularQuestsSubsystem.generated.h"
+
+class UModularQuestsComponent;
 
 /** Holds global helpers for the quests system.  */
 UCLASS(config = Game)
@@ -31,6 +34,13 @@ public:
 	/** Returns true if InitGlobalData has been called */
 	bool IsModularQuestsSubsystemInitialized() const;
 
+public:
+	/** Searches the passed in actor for a Modular Quests component, will use IAbilitySystemInterface or fall back to a component search */
+	static UModularQuestsComponent* GetQuestsComponentFromActor(const AActor* Actor, bool LookForComponent=true);
+
+	/** Should allocate a project specific QuestActorInfo struct. Caller is responsible for deallocation */
+	virtual FModularQuestActorInfo* AllocQuestActorInfo() const;
+	
 private:
 	void PerformDeveloperSettingsUpgrade();
 

@@ -1,6 +1,9 @@
 // Copyright Amr Hamed.
 
 #include "ModularQuestsSubsystem.h"
+
+#include "ModularQuestsComponent.h"
+#include "ModularQuestsComponentAccessorInterface.h"
 #include "ModularQuestsDeveloperSettings.h"
 #include "ModularQuestsLog.h"
 
@@ -85,4 +88,31 @@ void UModularQuestsSubsystem::PerformDeveloperSettingsUpgrade()
 	SyncTag(ActivateFailCanActivateQuestTag, DeveloperSettings->ActivateFailCanActivateQuestTag);
 	SyncTag(ActivateFailTagsBlockedTag, DeveloperSettings->ActivateFailTagsBlockedTag);
 	SyncTag(ActivateFailTagsMissingTag, DeveloperSettings->ActivateFailTagsMissingTag);
+}
+
+FModularQuestActorInfo * UModularQuestsSubsystem::AllocQuestActorInfo() const
+{
+	return new FModularQuestActorInfo();
+}
+
+/** Helping function to avoid having to manually cast */
+UModularQuestsComponent* UModularQuestsSubsystem::GetQuestsComponentFromActor(const AActor* Actor, bool LookForComponent)
+{
+	if (Actor == nullptr)
+	{
+		return nullptr;
+	}
+
+	if (const IModularQuestsComponentAccessorInterface* QuestsComponentAccessorI = Cast<IModularQuestsComponentAccessorInterface>(Actor))
+	{
+		return QuestsComponentAccessorI->GetQuestsComponent();
+	}
+
+	if (LookForComponent)
+	{
+		// Fall back to a component search to better support BP-only actors
+		return Actor->FindComponentByClass<UModularQuestsComponent>();
+	}
+
+	return nullptr;
 }

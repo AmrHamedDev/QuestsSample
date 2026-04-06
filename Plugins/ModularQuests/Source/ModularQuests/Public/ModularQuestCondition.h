@@ -38,12 +38,6 @@ public:
 	/** The condition is considered to have these tags. */
 	const FGameplayTagContainer& GetAssetTags() const;
 
-	/** Returns true if the condition's source and target tag requirements are satisfied. */
-	virtual bool DoesConditionSatisfyTagRequirements(
-		const FGameplayTagContainer* SourceTags = nullptr,
-		const FGameplayTagContainer* TargetTags = nullptr,
-		OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const;
-
 public:
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
@@ -56,7 +50,8 @@ protected:
 	// #todo_Amr: Auto-fill based on parameters
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Display)
 	FText Description;
-	
+
+protected:
 	/** The Quest owning this condition. */
 	UPROPERTY(BlueprintReadOnly, Category = State)
 	TObjectPtr<UModularQuest> Quest;
@@ -76,22 +71,4 @@ private:
 	/** This Condition has these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, meta=(Categories="ConditionTagCategory", DisplayName="Condition Tags"))
 	FGameplayTagContainer AssetTags;
-
-	// #tbr_Amr: Do we really need these?
-
-	/** This Condition can only be activated if the source actor/component has all of these tags */
-	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="SourceTagsCategory"))
-	FGameplayTagContainer SourceRequiredTags;
-
-	/** This Condition is blocked if the source actor/component has any of these tags */
-	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="SourceTagsCategory"))
-	FGameplayTagContainer SourceBlockedTags;
-	
-	/** This Condition can only be activated if the target actor/component has all of these tags */
-	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="TargetTagsCategory"))
-	FGameplayTagContainer TargetRequiredTags;
-
-	/** This Condition is blocked if the target actor/component has any of these tags */
-	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="TargetTagsCategory"))
-	FGameplayTagContainer TargetBlockedTags;
 };

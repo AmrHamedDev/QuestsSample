@@ -12,8 +12,15 @@
 UModularQuestsComponent::UModularQuestsComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	bWantsInitializeComponent = true;
 
+	PrimaryComponentTick.bStartWithTickEnabled = true;
+	
+	// Forcing AutoActivate since above we manually force tick enabled.
+	// if we don't have this, UpdateShouldTick() fails to have any effect
+	// because we'll be receiving ticks but bIsActive starts as false
+	bAutoActivate = true;
+	
 	ScopeLockCount = 0;
 	bPendingClearAll = false;
 }
@@ -24,6 +31,34 @@ inline void UModularQuestsComponent::InitializeComponent()
 
 	AActor *Owner = GetOwner();
 	InitQuestActorInfo(Owner, Owner);	// Default init to our outer owner
+}
+
+void UModularQuestsComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+{	
+	SCOPE_CYCLE_COUNTER(STAT_TickQuestComponent);
+	CSV_SCOPED_TIMING_STAT_EXCLUSIVE(ModularQuests);
+	
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	
+}
+
+void UModularQuestsComponent::OnRegister()
+{
+	Super::OnRegister();
+	
+	// Allocate a QuestActorInfo.
+	if(!QuestActorInfo.IsValid())
+	{
+		// 	Note: this goes through a global function and is a SharedPtr so projects can make their own QuestActorInfo
+		if (UModularQuestsSubsystem::HasInstance(GetWorld()))
+		{
+			QuestActorInfo = TSharedPtr<FModularQuestActorInfo>(UModularQuestsSubsystem::Get(GetWorld()).AllocQuestActorInfo());
+		}
+		else
+		{
+			QuestActorInfo = MakeShared<FModularQuestActorInfo>();
+		}
+	}
 }
 
 FModularQuestSpecHandle UModularQuestsComponent::GiveQuest(const FModularQuestSpec& Spec)
@@ -441,6 +476,26 @@ FModularQuestSpec* UModularQuestsComponent::FindQuestSpecFromHandle(FModularQues
 			{
 				return const_cast<FModularQuestSpec*>(&Spec);
 			}
+		}
+	}
+
+	return nullptr;
+}
+
+FModularQuestSpec* UModularQuestsComponent::FindQuestSpecFromClass(const TSubclassOf<UModularQuest>& QuestClass) const
+{
+	SCOPE_CYCLE_COUNTER(STAT_FindQuestSpecFromHandle);
+
+	for (const FModularQuestSpec& Spec : AvailableQuests)
+	{
+		if (Spec.Quest == nullptr)
+		{
+			continue;
+		}
+
+		if (Spec.Quest->GetClass() == QuestClass)
+		{
+			return const_cast<FModularQuestSpec*>(&Spec);
 		}
 	}
 

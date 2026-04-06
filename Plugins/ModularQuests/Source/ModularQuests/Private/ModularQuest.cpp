@@ -323,38 +323,35 @@ bool UModularQuest::DoesQuestSatisfyTagRequirements(
 	// Start by checking all of the blocked tags first (so OptionalRelevantTags will contain blocked tags first)
 	CheckForBlocked(InQuestsComponent.GetBlockedQuestTags(), GetAssetTags());
 	CheckForBlocked(InQuestsComponent.GetOwnedGameplayTags(), ActivationBlockedTags);
-
+	if (SourceTags != nullptr)
+	{
+		CheckForBlocked(*SourceTags, SourceBlockedTags);
+	}
+	if (TargetTags != nullptr)
+	{
+		CheckForBlocked(*TargetTags, TargetBlockedTags);
+	}
+	
 	// Now check all required tags
 	CheckForRequired(InQuestsComponent.GetOwnedGameplayTags(), ActivationRequiredTags);
-
+	if (SourceTags != nullptr)
+	{
+		CheckForRequired(*SourceTags, SourceRequiredTags);
+	}
+	if (TargetTags != nullptr)
+	{
+		CheckForRequired(*TargetTags, TargetRequiredTags);
+	}
+	
 	// We succeeded if there were no blocked tags and no missing required tags	
 	return !bBlocked && !bMissing;
 }
 
-void UModularQuest::OnQuestActivated(
-	const FModularQuestSpecHandle Handle,
-	const FModularQuestActorInfo* ActorInfo,
-	const FGameplayEventData* TriggerEventData)
+void UModularQuest::CallActivateQuest(const FModularQuestSpecHandle Handle, const FModularQuestActorInfo* ActorInfo,
+	FOnQuestEnded::FDelegate* OnQuestEndedDelegate, const FGameplayEventData* TriggerEventData)
 {
-	// Call Blueprint Versions
-	if (TriggerEventData && bHasImplementedActivateFromEventInBlueprint)
-	{
-		K2_OnQuestActivatedFromEvent(*TriggerEventData);
-	}
-	else if (bHasImplementedActivateInBlueprint)
-	{
-		K2_OnQuestActivated();
-	}
-	else if (bHasImplementedActivateFromEventInBlueprint)
-	{
-		QUEST_LOG(Warning,
-			TEXT("Quest %s expects event data but none is being supplied. Use 'Activate Quest' instead of 'Activate Quest From Event' in the Blueprint."), *GetName());
-	}
-
-	// #tbr_Amr: We might need to handle condition pooling or ensure creating condition objects is not heavy.
-	
-	// #todo_Amr: Handle condition evaluations properly
-	// For now simplest approach is to start evaluating conditions in order, but delegate that to an evaluator object that notifies us once a result is returned
+	PreActivate(Handle, ActorInfo, OnQuestEndedDelegate, TriggerEventData);
+	OnQuestActivated(Handle, ActorInfo, TriggerEventData);
 }
 
 void UModularQuest::PreActivate(
@@ -365,7 +362,6 @@ void UModularQuest::PreActivate(
 {
 	UModularQuestsComponent* Comp = ActorInfo->QuestsComponent.Get();
 	
-	CurrentState = EQuestState::Active;
 	bIsBlockingOtherQuests = true;
 	bIsCancelable = true;
 	
@@ -406,6 +402,11 @@ void UModularQuest::PreActivate(
 		return;
 	}
 
+	if (IsInstantiated())
+	{
+		CurrentState = EQuestState::Active;
+	}
+
 	// make sure we do not incur a roll-over if we go over the uint8 max, this will need to be updated if the var size changes
 	if (LIKELY(Spec->ActiveCount < UINT8_MAX))
 	{
@@ -417,11 +418,37 @@ void UModularQuest::PreActivate(
 	}
 }
 
-void UModularQuest::CallActivateQuest(const FModularQuestSpecHandle Handle, const FModularQuestActorInfo* ActorInfo,
-	FOnQuestEnded::FDelegate* OnQuestEndedDelegate, const FGameplayEventData* TriggerEventData)
+void UModularQuest::OnQuestActivated(
+	const FModularQuestSpecHandle Handle,
+	const FModularQuestActorInfo* ActorInfo,
+	const FGameplayEventData* TriggerEventData)
 {
-	PreActivate(Handle, ActorInfo, OnQuestEndedDelegate, TriggerEventData);
-	OnQuestActivated(Handle, ActorInfo, TriggerEventData);
+	// Call Blueprint Versions
+	if (TriggerEventData && bHasImplementedActivateFromEventInBlueprint)
+	{
+		K2_OnQuestActivatedFromEvent(*TriggerEventData);
+	}
+	else if (bHasImplementedActivateInBlueprint)
+	{
+		K2_OnQuestActivated();
+	}
+	else if (bHasImplementedActivateFromEventInBlueprint)
+	{
+		QUEST_LOG(Warning,
+			TEXT("Quest %s expects event data but none is being supplied. Use 'Activate Quest' instead of 'Activate Quest From Event' in the Blueprint."), *GetName());
+	}
+
+	// #tbr_Amr: We might need to handle condition pooling or ensure creating condition objects is not heavy.
+	
+	// #todo_Amr: Handle condition evaluations properly (maybe delegate that to an evaluator object that notifies us once a result is returned)
+	// For now simplest approach is to start evaluating conditions in order,
+	for (const TObjectPtr<UModularQuestCondition> Condition : Conditions)
+	{
+		if (ensure(Condition) && Condition->IsSatisfied())
+		{
+			// Do something
+		}
+	}
 }
 
 void UModularQuest::K2_EndQuest()
