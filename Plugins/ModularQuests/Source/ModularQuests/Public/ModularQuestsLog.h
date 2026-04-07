@@ -10,6 +10,7 @@
 MODULARQUESTS_API DECLARE_LOG_CATEGORY_EXTERN(LogModularQuests, Display, All);
 MODULARQUESTS_API DECLARE_LOG_CATEGORY_EXTERN(VLogModularQuests, Display, All);
 MODULARQUESTS_API DECLARE_LOG_CATEGORY_EXTERN(LogModularQuestsConditions, Display, All);
+MODULARQUESTS_API DECLARE_LOG_CATEGORY_EXTERN(LogModularQuestsRewards, Display, All);
 
 #define QUEST_LOG(Verbosity, Format, ...) \
 { \

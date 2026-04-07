@@ -2,17 +2,18 @@
 
 #include "ModularQuest.h"
 
-#include "ModularQuestCondition.h"
+#include "Conditions/ModularQuestCondition.h"
 #include "ModularQuestsComponent.h"
 #include "ModularQuestsLog.h"
 #include "Misc/DataValidation.h"
 #include "Templates/SubclassOf.h"
 #include "UObject/ObjectPtr.h"
 #include "ModularQuestsDeveloperSettings.h"
+#include "Evaluators/ModularQuestEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "ModularQuest"
 
-#include "Evaluators/ModularQuestEvaluator.h"
+#include "Rewards/ModularQuestReward.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(ModularQuest)
 
@@ -426,7 +427,7 @@ void UModularQuest::PreActivate(
 				Evaluator->OnEvaluationEnded.AddDynamic(this, &UModularQuest::OnEvaluationEnded);
 			}
 			
-			FQuestEvaluationContext EvaluationContext(this, Handle, ActorInfo);
+			FQuestRuntimeContext EvaluationContext(this, Handle, ActorInfo);
 			Evaluator->StartEvaluation(EvaluationContext);
 		}
 	}
@@ -515,6 +516,12 @@ void UModularQuest::EndQuest(
 		// Update State
 		CurrentState = EndResult == EQuestEndResultType::Succeeded ? EQuestState::Completed : EQuestState::NotStarted;
 		bIsEnding = false;
+
+		if (IsCompleted())
+		{
+			FQuestRuntimeContext RuntimeContext(this, Handle, ActorInfo);
+			GiveRewards(RuntimeContext);
+		}
 		
 		// Execute our delegate and unbind it, as we are no longer active and listeners can re-register when we become active again.
 		OnQuestEnded.Broadcast(this);
@@ -700,6 +707,17 @@ void UModularQuest::OnEvaluationEnded(const UModularQuestEvaluator* InEvaluator,
 	{
 		ensure(CurrentActorInfo != nullptr);
 		EndQuest(CurrentSpecHandle, CurrentActorInfo, InEvaluationResult.EndResult);
+	}
+}
+
+void UModularQuest::GiveRewards(const FQuestRuntimeContext& InQuestContext)
+{
+	for (TObjectPtr<UModularQuestReward>& Reward : Rewards)
+	{
+		if (ensure(Reward != nullptr))
+		{
+			Reward->TryGiveReward(InQuestContext);
+		}
 	}
 }
 

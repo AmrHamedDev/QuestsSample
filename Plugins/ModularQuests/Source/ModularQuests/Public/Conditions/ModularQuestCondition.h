@@ -60,16 +60,16 @@ public:
 	 * Called to start evaluating the condition by the owning quest or evaluator. Do Not Call this Directly.
 	 * Can succeed or fail based on Evaluation Context and Current State.
 	 */
-	virtual bool TryStartEvaluation(const FQuestEvaluationContext& EvaluationContext);
+	virtual bool TryStartEvaluation(const FQuestRuntimeContext& EvaluationContext);
 
 protected:
 	/** Returns true if this condition can start evaluation right now. Has no side effects */
 	UFUNCTION(BlueprintImplementableEvent, Category = Quest, DisplayName="CanStartEvaluation", meta=(ScriptName="CanStartEvaluation"))
-	bool K2_CanStartEvaluation(const FQuestEvaluationContext& EvaluationContext, FGameplayTagContainer& RelevantTags) const;
+	bool K2_CanStartEvaluation(const FQuestRuntimeContext& EvaluationContext, FGameplayTagContainer& RelevantTags) const;
 	
 	/** Called when the condition starts evaluation. Usually to start listening to game state and begin evaluating the condition. */
 	UFUNCTION(BlueprintImplementableEvent, Category = Condition, DisplayName = "OnEvaluationStarted", meta=(ScriptName = "OnEvaluationStarted"))
-	void K2_OnEvaluationStarted(const FQuestEvaluationContext& EvaluationContext);
+	void K2_OnEvaluationStarted(const FQuestRuntimeContext& EvaluationContext);
 
 
 	/** Call from Blueprint to cancel evaluation */
@@ -108,19 +108,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Display)
 	FText DisplayName;
 
-	// #todo_Amr: Auto-fill based on parameters
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Display)
 	FText Description;
 
 protected:
 	/** Current evaluation context that contains useful data for evaluating this condition. */
 	UPROPERTY(BlueprintReadOnly, Category = State)
-	TOptional<FQuestEvaluationContext> CurrentEvaluationContext;
+	TOptional<FQuestRuntimeContext> CurrentEvaluationContext;
 
 	/** Quest owning this condition. */
 	UPROPERTY(BlueprintReadOnly, Category = State)
 	TObjectPtr<const UModularQuest> Quest;
-	
+
 public:
 	// #tbr_Amr: these shouldn't be public
 	
@@ -147,5 +146,7 @@ private:
 	/** This Condition has these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, meta=(Categories="ConditionTagCategory", DisplayName="Condition Tags"))
 	FGameplayTagContainer AssetTags;
-	
+
+	bool bHasImplementedStartEvaluationInBlueprint = false;
+
 };

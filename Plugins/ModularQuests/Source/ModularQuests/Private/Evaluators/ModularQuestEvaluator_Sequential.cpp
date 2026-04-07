@@ -1,7 +1,7 @@
 // Copyright Amr Hamed.
 
 #include "Evaluators/ModularQuestEvaluator_Sequential.h"
-#include "ModularQuestCondition.h"
+#include "Conditions/ModularQuestCondition.h"
 #include "ModularQuestsLog.h"
 
 bool UModularQuestEvaluator_Sequential::IsCompleted() const
@@ -45,7 +45,7 @@ const UModularQuestCondition* UModularQuestEvaluator_Sequential::FindConditionBy
 	return Super::FindConditionByClass(ConditionClass);
 }
 
-void UModularQuestEvaluator_Sequential::StartEvaluatingConditionAt(int32 Index, const FQuestEvaluationContext& EvaluationContext)
+void UModularQuestEvaluator_Sequential::StartEvaluatingConditionAt(int32 Index, const FQuestRuntimeContext& EvaluationContext)
 {
 	if (!ensure(Conditions.IsValidIndex(Index) && CurrentConditionIndex != Index))
 	{
@@ -60,7 +60,7 @@ void UModularQuestEvaluator_Sequential::StartEvaluatingConditionAt(int32 Index, 
 	CurrentCondition->TryStartEvaluation(EvaluationContext);
 }
 
-void UModularQuestEvaluator_Sequential::OnStartedEvaluation(const FQuestEvaluationContext& EvaluationContext)
+void UModularQuestEvaluator_Sequential::OnStartedEvaluation(const FQuestRuntimeContext& EvaluationContext)
 {
 	Super::OnStartedEvaluation(EvaluationContext);
 
@@ -73,6 +73,7 @@ void UModularQuestEvaluator_Sequential::OnStartedEvaluation(const FQuestEvaluati
 		}
 
 		StartEvaluatingConditionAt(index, EvaluationContext);
+		return;
 	}
 }
 

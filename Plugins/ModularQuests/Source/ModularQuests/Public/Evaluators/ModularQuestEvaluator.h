@@ -54,11 +54,11 @@ protected:
 	/** Called when evaluation is started. This is the main event to override to start evaluating.
 	 * Base implementation calls BP version. 
 	 */
-	virtual void OnStartedEvaluation(const FQuestEvaluationContext& EvaluationContext);
+	virtual void OnStartedEvaluation(const FQuestRuntimeContext& EvaluationContext);
 	
 	/** Called when evaluation is started. This is the main event to override to start evaluating. */
 	UFUNCTION(BlueprintImplementableEvent, Category = Evaluator, DisplayName="OnStartedEvaluation", meta=(ScriptName="OnStartedEvaluation"))
-	void K2_OnStartedEvaluation(const FQuestEvaluationContext& EvaluationContext);
+	void K2_OnStartedEvaluation(const FQuestRuntimeContext& EvaluationContext);
 
 	/**
 	 * Called when evaluation is finished. Override this if you want custom logic when evaluation ends.
@@ -79,14 +79,14 @@ protected:
 
 private:
 	/** Internal function called by the quest to start evaluation. */
-	void StartEvaluation(const FQuestEvaluationContext& EvaluationContext);
+	void StartEvaluation(const FQuestRuntimeContext& EvaluationContext);
 	/** Internal function called by the quest to cancel evaluation. */
 	void CancelEvaluation();
 
 protected:
 	/** Current evaluation context that contains useful data for evaluation. */
 	UPROPERTY(BlueprintReadOnly, Category = Evaluator)
-	TOptional<FQuestEvaluationContext> CurrentEvaluationContext;
+	TOptional<FQuestRuntimeContext> CurrentEvaluationContext;
 
 	/** Quest we're evaluating. */
 	UPROPERTY(BlueprintReadOnly, Category = Evaluator)

@@ -19,7 +19,7 @@ const UModularQuest* UModularQuestEvaluator::GetQuest() const
 	return Quest;
 }
 
-void UModularQuestEvaluator::StartEvaluation(const FQuestEvaluationContext& EvaluationContext)
+void UModularQuestEvaluator::StartEvaluation(const FQuestRuntimeContext& EvaluationContext)
 {
 	if (ensure(!IsActive()))
 	{
@@ -59,7 +59,7 @@ void UModularQuestEvaluator::FinishEvaluation(EQuestEndResultType InEndResultTyp
 	}
 }
 
-void UModularQuestEvaluator::OnStartedEvaluation(const FQuestEvaluationContext& EvaluationContext)
+void UModularQuestEvaluator::OnStartedEvaluation(const FQuestRuntimeContext& EvaluationContext)
 {
 	K2_OnStartedEvaluation(EvaluationContext);
 

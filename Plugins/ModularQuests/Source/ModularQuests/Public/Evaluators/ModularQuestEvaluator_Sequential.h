@@ -25,10 +25,10 @@ public:
 	const UModularQuestCondition* FindConditionByClass(TSubclassOf<UModularQuestCondition> ConditionClass) const;
 
 protected:
-	void OnStartedEvaluation(const FQuestEvaluationContext& EvaluationContext);
+	void OnStartedEvaluation(const FQuestRuntimeContext& EvaluationContext);
 	void OnEndedEvaluation(const FQuestEvaluationResult& EvaluationResult);
 
-	void StartEvaluatingConditionAt(int32 Index, const FQuestEvaluationContext& EvaluationContext);
+	void StartEvaluatingConditionAt(int32 Index, const FQuestRuntimeContext& EvaluationContext);
 
 	UFUNCTION()
 	void OnConditionEvaluationChanged(const UModularQuestCondition* InCondition);

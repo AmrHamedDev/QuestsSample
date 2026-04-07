@@ -119,31 +119,31 @@ private:
 #define QUESTLIST_SCOPE_LOCK()	FScopedQuestListLock ActiveScopeLock(*this);
 
 // #tbr_Amr: Should we replace this with an InstancedStruct or keep it inside it for different type of payloads?
-/** Context data useful during quest evaluation */
+/** Context data of an active quest. */
 USTRUCT(BlueprintType)
-struct FQuestEvaluationContext
+struct FQuestRuntimeContext
 {
 	GENERATED_USTRUCT_BODY()
 
-	FQuestEvaluationContext()
+	FQuestRuntimeContext()
 		: OwningQuest(nullptr)
 		, ActorInfo(nullptr)
 	{
 	}
 
-	FQuestEvaluationContext(const UModularQuest* InQuest, FModularQuestSpecHandle InHandle, const FModularQuestActorInfo* InActorInfo)
+	FQuestRuntimeContext(const UModularQuest* InQuest, FModularQuestSpecHandle InHandle, const FModularQuestActorInfo* InActorInfo)
 		: OwningQuest(InQuest)
 		, QuestSpecHandle(InHandle)
 		, ActorInfo(InActorInfo)
 	{
 	}
 
-	/** Quest being evaluated, normally instance but could be CDO */
-	UPROPERTY()
+	/** Quest of this context, normally instance but could be CDO */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<const UModularQuest> OwningQuest;
 
 	/** Specific Quest spec */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FModularQuestSpecHandle QuestSpecHandle;
 	
 	const FModularQuestActorInfo* ActorInfo;
@@ -164,42 +164,42 @@ struct FQuestEvaluationResult
 	
 	FQuestEvaluationResult(
 		EQuestEndResultType InEndResult,
-		const FQuestEvaluationContext& InContext)
+		const FQuestRuntimeContext& InContext)
 		: EndResult(InEndResult)
 		, Context(InContext)
 	{
 	}
 	
 	/** End Result */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	EQuestEndResultType EndResult;
 	
 	/** Evaluation Context */
-	UPROPERTY()
-	FQuestEvaluationContext Context = FQuestEvaluationContext();
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FQuestRuntimeContext Context = FQuestRuntimeContext();
 
 	/** Relevant tags for the evaluation, for example failure reasons if the evaluation failed. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FGameplayTagContainer RelevantTags = FGameplayTagContainer();
 };
 
 /** Generic delegate for quest 'events'/notifies */
-DECLARE_MULTICAST_DELEGATE_OneParam(FGenericQuestDelegate, const UModularQuest*);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGenericQuestDelegate, const UModularQuest*, Quest);
 
 /** Notification delegate definition for when the quest ends */
-DECLARE_MULTICAST_DELEGATE_OneParam(FQuestEndedDelegate, const FQuestEndedData&);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FQuestEndedDelegate, const FQuestEndedData&, QuestEndedData);
 
 // #tbr_Amr: Why do we have both of these?
 /** Notification delegate definition for when the quest ends */
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnQuestEnded, const UModularQuest*);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQuestEnded, const UModularQuest*, InQuest);
 /** Called when a quest ends */
-DECLARE_MULTICAST_DELEGATE_OneParam(FQuestEnded, const UModularQuest*);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FQuestEnded, const UModularQuest*, InQuest);
 
 /** Notification delegate definition for when the quest is cancelled */
-DECLARE_MULTICAST_DELEGATE(FOnQuestCancelled);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnQuestCancelled);
 
 /** Called when a quest fails to activate, passes along the failed quest and a tag explaining why */
-DECLARE_MULTICAST_DELEGATE_TwoParams(FQuestFailedDelegate, const UModularQuest*, const FGameplayTagContainer&);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FQuestFailedDelegate, const UModularQuest*, InQuest, const FGameplayTagContainer&, InTags);
 
 /** Notify interested parties that quest spec has been modified */
 DECLARE_MULTICAST_DELEGATE_OneParam(FQuestSpecDirtied, const FModularQuestSpec&);
@@ -214,3 +214,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGenericQuestConditionDelegate, cons
 /** Notification delegate definition for when a quest condition evaluation ends */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FQuestConditionEvaluationEndedDelegate,
 	const UModularQuestCondition*, InCondition, const FQuestEvaluationResult&, InEvaluationResult);
+
+/** Generic delegate for reward 'events'/notifies */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGenericQuestRewardDelegate, const UModularQuestReward*, InReward);

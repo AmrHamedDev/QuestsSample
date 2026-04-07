@@ -252,14 +252,18 @@ public:
 	virtual void HandleQuestEnded(FModularQuestSpecHandle Handle, const UModularQuest* Quest, const EQuestEndResultType EndResult);
 	
 	/** A generic callback anytime a quest is activated (started) */
+	UPROPERTY(BlueprintAssignable, Category = "Quests")
 	FGenericQuestDelegate QuestActivatedCallbacks;
 
 	/** Called with a failure reason when a quest failed to activate */
+	UPROPERTY(BlueprintAssignable, Category = "Quests")
 	FQuestFailedDelegate QuestFailedCallbacks;
 	
 	/** Callback anytime a quest is ended */
 	FQuestEnded QuestEndedCallbacks;
+
 	/** Callback anytime a quest is ended, with extra information */
+	UPROPERTY(BlueprintAssignable, Category = "Quests")
 	FQuestEndedDelegate OnQuestEnded;
 	
 	/** Called when a quest spec's internals have changed */

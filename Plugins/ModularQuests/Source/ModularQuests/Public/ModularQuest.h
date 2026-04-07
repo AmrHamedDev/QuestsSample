@@ -168,6 +168,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = Quest, DisplayName = "OnEvaluationEnded", meta=(ScriptName = "OnEvaluationEnded"))
 	void K2_OnEvaluationEnded(const UModularQuestEvaluator* InEvaluator, const FQuestEvaluationResult& InEvaluationResult);
 
+	/** Called once the quest is completed to give rewards to the owner. */
+	virtual void GiveRewards(const FQuestRuntimeContext& InQuestContext);
+	
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif
@@ -262,6 +265,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= Config, Instanced)
 	TObjectPtr<UModularQuestEvaluator> Evaluator;
 
+	/** The Rewards of this Quest, which will be given once completed successfully. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= Config, Instanced)
+	TArray<TObjectPtr<UModularQuestReward>> Rewards;
+
 protected:
 	/** 
 	 *  This is shared, cached information about the thing using us
@@ -279,12 +286,15 @@ protected:
 	FGameplayEventData CurrentEventData;
 	
 	/** Notification that the quest has ended.  Set using TryActivateQuest. */
+	UPROPERTY(BlueprintAssignable, Category = Quest)
 	FOnQuestEnded OnQuestEnded;
 
 	/** Notification that the quest has ended with data on how it was ended */
+	UPROPERTY(BlueprintAssignable, Category = Quest)
 	FQuestEndedDelegate OnQuestEndedWithData;
 
 	/** Notification that the quest is being cancelled. Called before OnQuestEnded. */
+	UPROPERTY(BlueprintAssignable, Category = Quest)
 	FOnQuestCancelled OnQuestCancelled;
 
 private:

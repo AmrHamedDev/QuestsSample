@@ -1,6 +1,6 @@
 // Copyright Amr Hamed.
 
-#include "ModularQuestCondition.h"
+#include "Conditions/ModularQuestCondition.h"
 #include "Misc/DataValidation.h"
 #include "ModularQuestsSubsystem.h"
 #include "ModularQuest.h"
@@ -13,6 +13,17 @@
 UModularQuestCondition::UModularQuestCondition(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	auto ImplementedInBlueprint = [](const UFunction* Func) -> bool
+	{
+		return Func && ensure(Func->GetOuter())
+			&& Func->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+	};
+	
+	{
+		static FName FuncName = FName(TEXT("K2_CanStartEvaluation"));
+		UFunction* CanActivateFunction = GetClass()->FindFunctionByName(FuncName);
+		bHasImplementedStartEvaluationInBlueprint = ImplementedInBlueprint(CanActivateFunction);
+	}
 }
 
 UWorld* UModularQuestCondition::GetWorld() const
@@ -40,9 +51,9 @@ const UModularQuest* UModularQuestCondition::GetQuest() const
 	return Quest;
 }
 
-bool UModularQuestCondition::TryStartEvaluation(const FQuestEvaluationContext& EvaluationContext)
+bool UModularQuestCondition::TryStartEvaluation(const FQuestRuntimeContext& EvaluationContext)
 {
-	// If we're we're already active, don't let us activate again
+	// If we're already active, don't let us activate again
 	if (IsActive())
 	{
 		UE_LOG(LogModularQuestsConditions, Verbose, TEXT("Can't activate condition %s when it's already active."), *GetName());
@@ -67,7 +78,7 @@ bool UModularQuestCondition::TryStartEvaluation(const FQuestEvaluationContext& E
 
 	// Give blueprints a chance to decide
 	FGameplayTagContainer FailureTags;
-	if (!K2_CanStartEvaluation(EvaluationContext, FailureTags))
+	if (bHasImplementedStartEvaluationInBlueprint && !K2_CanStartEvaluation(EvaluationContext, FailureTags))
 	{
 		UE_LOG(LogModularQuestsConditions, Verbose, TEXT("%s: CanStartEvaluation on %s failed."),
 			*GetNameSafe(OwningActor), *GetNameSafe(this));
