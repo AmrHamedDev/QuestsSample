@@ -12,6 +12,8 @@
 
 #define LOCTEXT_NAMESPACE "ModularQuest"
 
+#include "Evaluators/ModularQuestEvaluator.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(ModularQuest)
 
 namespace FModularQuestsTweaks
@@ -57,6 +59,16 @@ UModularQuest::UModularQuest(const FObjectInitializer& ObjectInitializer)
 		UFunction* ActivateFunction = GetClass()->FindFunctionByName(FuncName);
 		bHasImplementedActivateFromEventInBlueprint = ImplementedInBlueprint(ActivateFunction);
 	}
+}
+
+UWorld* UModularQuest::GetWorld() const
+{
+	if (IsInstantiated())
+	{
+		return GetOuter()->GetWorld();
+	}
+	
+	return nullptr;
 }
 
 FModularQuestActorInfo UModularQuest::GetActorInfo() const
@@ -405,6 +417,18 @@ void UModularQuest::PreActivate(
 	if (IsInstantiated())
 	{
 		CurrentState = EQuestState::Active;
+
+		// Ask the evaluator to start evaluating and bind to it.
+		if (ensure(Evaluator != nullptr))
+		{
+			if (ensure(!Evaluator->OnEvaluationEnded.IsAlreadyBound(this, &UModularQuest::OnEvaluationEnded)))
+			{
+				Evaluator->OnEvaluationEnded.AddDynamic(this, &UModularQuest::OnEvaluationEnded);
+			}
+			
+			FQuestEvaluationContext EvaluationContext(this, Handle, ActorInfo);
+			Evaluator->StartEvaluation(EvaluationContext);
+		}
 	}
 
 	// make sure we do not incur a roll-over if we go over the uint8 max, this will need to be updated if the var size changes
@@ -437,51 +461,47 @@ void UModularQuest::OnQuestActivated(
 		QUEST_LOG(Warning,
 			TEXT("Quest %s expects event data but none is being supplied. Use 'Activate Quest' instead of 'Activate Quest From Event' in the Blueprint."), *GetName());
 	}
-
-	// #tbr_Amr: We might need to handle condition pooling or ensure creating condition objects is not heavy.
-	
-	// #todo_Amr: Handle condition evaluations properly (maybe delegate that to an evaluator object that notifies us once a result is returned)
-	// For now simplest approach is to start evaluating conditions in order,
-	for (const TObjectPtr<UModularQuestCondition> Condition : Conditions)
-	{
-		if (ensure(Condition) && Condition->IsSatisfied())
-		{
-			// Do something
-		}
-	}
 }
 
-void UModularQuest::K2_EndQuest()
+void UModularQuest::K2_EndQuest(EQuestEndResultType EndResult)
 {
 	ensure(CurrentActorInfo != nullptr);
 
-	bool bWasCancelled = false;
-	EndQuest(CurrentSpecHandle, CurrentActorInfo, bWasCancelled);
+	EndQuest(CurrentSpecHandle, CurrentActorInfo, EndResult);
 }
 
-void UModularQuest::EndQuest(const FModularQuestSpecHandle Handle, const FModularQuestActorInfo* ActorInfo,
-	bool bWasCancelled)
+void UModularQuest::EndQuest(
+	const FModularQuestSpecHandle Handle,
+	const FModularQuestActorInfo* ActorInfo,
+	const EQuestEndResultType EndResult)
 {
 	if (CanBeEnded(Handle, ActorInfo))
 	{
 		if (ScopeLockCount > 0)
 		{
 			QUEST_LOG(Verbose, TEXT("Attempting to end Quest %s but ScopeLockCount was greater than 0, adding end to the WaitingToExecute Array"), *GetName());
-			WaitingToExecute.Add(FQuestPostLockDelegate::CreateUObject(this, &UModularQuest::EndQuest, Handle, ActorInfo, bWasCancelled));
+			WaitingToExecute.Add(FQuestPostLockDelegate::CreateUObject(this, &UModularQuest::EndQuest, Handle, ActorInfo, EndResult));
 			return;
 		}
 		
 		bIsEnding = true;
 
 		// Give blueprint a chance to react
-		K2_OnEndQuest(bWasCancelled);
+		K2_OnEndQuest(EndResult);
 
 		// Protect against blueprint causing us to EndQuest already
-		if (!IsActive())
+		if (!ensure(IsActive()))
 		{
 			return;
 		}
 
+		// Ask the evaluator to cancel evaluating and clear bindings to it.
+		if (ensure(Evaluator != nullptr))
+		{
+			Evaluator->OnEvaluationEnded.RemoveDynamic(this, &UModularQuest::OnEvaluationEnded);
+			Evaluator->CancelEvaluation();
+		}
+		
 		// Stop any timers or latent actions for the quest
 		if (UWorld* QuestWorld = GetWorld())
 		{
@@ -492,15 +512,15 @@ void UModularQuest::EndQuest(const FModularQuestSpecHandle Handle, const FModula
 			}
 		}
 
-		FGameplayTagContainer ConditionCheckTags;
-		CurrentState = !bWasCancelled && AreConditionsSatisfied(ConditionCheckTags) ? EQuestState::Completed : EQuestState::NotStarted;
+		// Update State
+		CurrentState = EndResult == EQuestEndResultType::Succeeded ? EQuestState::Completed : EQuestState::NotStarted;
 		bIsEnding = false;
 		
 		// Execute our delegate and unbind it, as we are no longer active and listeners can re-register when we become active again.
 		OnQuestEnded.Broadcast(this);
 		OnQuestEnded.Clear();
 
-		OnQuestEndedWithData.Broadcast(FQuestEndedData(this, Handle, bWasCancelled));
+		OnQuestEndedWithData.Broadcast(FQuestEndedData(this, Handle, EndResult));
 		OnQuestEndedWithData.Clear();
 
 		if (UModularQuestsComponent* const QuestsComponent = ActorInfo->QuestsComponent.Get())
@@ -527,7 +547,7 @@ void UModularQuest::EndQuest(const FModularQuestSpecHandle Handle, const FModula
 			}
 			
 			// Tell owning component that we ended so it can do stuff (including MarkPendingKill us)
-			QuestsComponent->HandleQuestEnded(Handle, this, bWasCancelled);
+			QuestsComponent->HandleQuestEnded(Handle, this, EndResult);
 		}
 
 		if (IsInstantiated())
@@ -547,7 +567,7 @@ bool UModularQuest::CanBeEnded(const FModularQuestSpecHandle Handle, const FModu
 		return false;
 	}
 
-	// check if the ques has a valid owner
+	// check if the quest has a valid owner
 	UModularQuestsComponent* QuestsComp = ActorInfo ? ActorInfo->QuestsComponent.Get() : nullptr;
 	if (QuestsComp == nullptr)
 	{
@@ -578,8 +598,7 @@ void UModularQuest::CancelQuest(const FModularQuestSpecHandle Handle, const FMod
 		}
 
 		// End the quest
-		bool bWasCancelled = true;
-		EndQuest(Handle, ActorInfo, bWasCancelled);
+		EndQuest(Handle, ActorInfo, EQuestEndResultType::Canceled);
 	}
 }
 
@@ -649,50 +668,39 @@ void UModularQuest::OnAvatarSet(const FModularQuestActorInfo* ActorInfo, const F
 
 const UModularQuestCondition* UModularQuest::FindConditionByClass(TSubclassOf<UModularQuestCondition> ConditionClass) const
 {
-	if (ConditionClass == nullptr)
+	if (ensure(Evaluator))
 	{
-		return nullptr;
+		return Evaluator->FindConditionByClass(ConditionClass);
 	}
 	
-	for (const UModularQuestCondition* Condition : Conditions)
-	{
-		if (Condition && Condition->IsA(ConditionClass))
-		{
-			return Condition;
-		}
-	}
-
 	return nullptr;
 }
 
 bool UModularQuest::AreConditionsSatisfied(FGameplayTagContainer& InOutRelevantTags) const
 {
-	for (const TObjectPtr<UModularQuestCondition> Condition: Conditions)
+	if (ensure(Evaluator))
 	{
-		if (!ensure(Condition && Condition->GetQuest() == this))
-		{
-			QUEST_LOG(Error, TEXT("%s: Has an Invalid Condition"), *GetName());
-			continue;
-		}
-
-		if (!Condition->IsSatisfied())
-		{
-			const FGameplayTagContainer& ConditionTags = Condition->GetAssetTags();
-			if (ConditionTags.IsValid())
-			{
-				InOutRelevantTags.AppendTags(ConditionTags);
-			}
-			
-			return false;
-		}
+		return Evaluator->AreConditionsSatisfied(InOutRelevantTags);
 	}
 
-	return true;
+	return false;
 }
 
 bool UModularQuest::IsCompleted() const
 {
 	return CurrentState == EQuestState::Completed;
+}
+
+void UModularQuest::OnEvaluationEnded(const UModularQuestEvaluator* InEvaluator, const FQuestEvaluationResult& InEvaluationResult)
+{
+	K2_OnEvaluationEnded(InEvaluator, InEvaluationResult);
+
+	// If we're still active, end with the evaluation result. 
+	if (IsActive())
+	{
+		ensure(CurrentActorInfo != nullptr);
+		EndQuest(CurrentSpecHandle, CurrentActorInfo, InEvaluationResult.EndResult);
+	}
 }
 
 void UModularQuest::IncrementListLock() const
@@ -731,9 +739,14 @@ EDataValidationResult UModularQuest::IsDataValid(FDataValidationContext& Context
 		Result = EDataValidationResult::Invalid;
 	}
 	
-	if (Conditions.IsEmpty())
+	if (Evaluator == nullptr)
 	{
-		Context.AddError(LOCTEXT("QuestEmptyConditionsDisallowed", "Quest has No Conditions"));
+		Context.AddError(LOCTEXT("QuestNullEvaluatorDisallowed", "Quest has No Evaluator"));
+		Result = EDataValidationResult::Invalid;
+	}
+	else if (Evaluator->GetNumConditions() <= 0)
+	{
+		Context.AddError(LOCTEXT("QuestZeroConditionsDisallowed", "Quest has No Conditions"));
 		Result = EDataValidationResult::Invalid;
 	}
 	

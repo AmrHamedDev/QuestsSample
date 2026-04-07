@@ -8,30 +8,29 @@
 
 #include "ModularQuestsTypes.generated.h"
 
+class UModularQuestEvaluator;
 class APlayerController;
 class UModularQuest;
 class UModularQuestsComponent;
 
-/** Generic delegate for quest 'events'/notifies */
-DECLARE_MULTICAST_DELEGATE_OneParam(FGenericQuestDelegate, const UModularQuest*);
+/** A state for a quest/condition in the quests system */
+UENUM(BlueprintType)
+enum class EQuestState : uint8
+{
+	NotStarted  UMETA(DisplayName = "Not Started"),
+	Active      UMETA(DisplayName = "Active"),
+	Completed   UMETA(DisplayName = "Completed")
+};
 
-/** Notification delegate definition for when the quest ends */
-DECLARE_MULTICAST_DELEGATE_OneParam(FQuestEndedDelegate, const FQuestEndedData&);
-
-// #tbr_Amr: Why do we have both of these?
-/** Notification delegate definition for when the quest ends */
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnQuestEnded, const UModularQuest*);
-/** Called when a quest ends */
-DECLARE_MULTICAST_DELEGATE_OneParam(FQuestEnded, const UModularQuest*);
-
-/** Notification delegate definition for when the quest is cancelled */
-DECLARE_MULTICAST_DELEGATE(FOnQuestCancelled);
-
-/** Called when a quest fails to activate, passes along the failed quest and a tag explaining why */
-DECLARE_MULTICAST_DELEGATE_TwoParams(FQuestFailedDelegate, const UModularQuest*, const FGameplayTagContainer&);
-
-/** Notify interested parties that quest spec has been modified */
-DECLARE_MULTICAST_DELEGATE_OneParam(FQuestSpecDirtied, const FModularQuestSpec&);
+/** Result returned from a condition evaluation */
+UENUM(BlueprintType)
+enum class EQuestEndResultType : uint8
+{
+	Unset	    UMETA(DisplayName = "Unset"),
+	Canceled	UMETA(DisplayName = "InProgress"),
+	Succeeded   UMETA(DisplayName = "Succeeded"),
+	Failed		UMETA(DisplayName = "Failed")
+};
 
 /** Quest Ended Data */
 USTRUCT(BlueprintType)
@@ -41,14 +40,14 @@ struct FQuestEndedData
 
 	FQuestEndedData()
 		: QuestThatEnded(nullptr)
-		, bWasCancelled(false)
+		, EndResult(EQuestEndResultType::Unset)
 	{
 	}
 
-	FQuestEndedData(const UModularQuest* InQuest, FModularQuestSpecHandle InHandle, bool bInWasCancelled)
+	FQuestEndedData(const UModularQuest* InQuest, FModularQuestSpecHandle InHandle, EQuestEndResultType InEndResult)
 		: QuestThatEnded(InQuest)
 		, QuestSpecHandle(InHandle)
-		, bWasCancelled(bInWasCancelled)
+		, EndResult(InEndResult)
 	{
 	}
 
@@ -60,20 +59,11 @@ struct FQuestEndedData
 	UPROPERTY()
 	FModularQuestSpecHandle QuestSpecHandle;
 
-	/** True if this was cancelled deliberately, false if it ended normally */
+	/** Quest End Result */
 	UPROPERTY()
-	bool bWasCancelled;
+	EQuestEndResultType EndResult;
 
 	// We can extend this to include failure reasons, completion rate, etc.
-};
-
-/** A state for a quest/condition in the quests system */
-UENUM(BlueprintType)
-enum class EQuestState : uint8
-{
-	NotStarted  UMETA(DisplayName = "Not Started"),
-	Active      UMETA(DisplayName = "Active"),
-	Completed   UMETA(DisplayName = "Completed")
 };
 
 /**
@@ -127,3 +117,100 @@ private:
 };
 
 #define QUESTLIST_SCOPE_LOCK()	FScopedQuestListLock ActiveScopeLock(*this);
+
+// #tbr_Amr: Should we replace this with an InstancedStruct or keep it inside it for different type of payloads?
+/** Context data useful during quest evaluation */
+USTRUCT(BlueprintType)
+struct FQuestEvaluationContext
+{
+	GENERATED_USTRUCT_BODY()
+
+	FQuestEvaluationContext()
+		: OwningQuest(nullptr)
+		, ActorInfo(nullptr)
+	{
+	}
+
+	FQuestEvaluationContext(const UModularQuest* InQuest, FModularQuestSpecHandle InHandle, const FModularQuestActorInfo* InActorInfo)
+		: OwningQuest(InQuest)
+		, QuestSpecHandle(InHandle)
+		, ActorInfo(InActorInfo)
+	{
+	}
+
+	/** Quest being evaluated, normally instance but could be CDO */
+	UPROPERTY()
+	TObjectPtr<const UModularQuest> OwningQuest;
+
+	/** Specific Quest spec */
+	UPROPERTY()
+	FModularQuestSpecHandle QuestSpecHandle;
+	
+	const FModularQuestActorInfo* ActorInfo;
+};
+
+/**
+ * Structure containing information about an evaluation result, such as context data, result, and any relevant tags.
+ */
+USTRUCT(BlueprintType)
+struct FQuestEvaluationResult
+{
+	GENERATED_USTRUCT_BODY()
+
+	FQuestEvaluationResult()
+	: EndResult(EQuestEndResultType::Unset)
+	{
+	}
+	
+	FQuestEvaluationResult(
+		EQuestEndResultType InEndResult,
+		const FQuestEvaluationContext& InContext)
+		: EndResult(InEndResult)
+		, Context(InContext)
+	{
+	}
+	
+	/** End Result */
+	UPROPERTY()
+	EQuestEndResultType EndResult;
+	
+	/** Evaluation Context */
+	UPROPERTY()
+	FQuestEvaluationContext Context = FQuestEvaluationContext();
+
+	/** Relevant tags for the evaluation, for example failure reasons if the evaluation failed. */
+	UPROPERTY()
+	FGameplayTagContainer RelevantTags = FGameplayTagContainer();
+};
+
+/** Generic delegate for quest 'events'/notifies */
+DECLARE_MULTICAST_DELEGATE_OneParam(FGenericQuestDelegate, const UModularQuest*);
+
+/** Notification delegate definition for when the quest ends */
+DECLARE_MULTICAST_DELEGATE_OneParam(FQuestEndedDelegate, const FQuestEndedData&);
+
+// #tbr_Amr: Why do we have both of these?
+/** Notification delegate definition for when the quest ends */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnQuestEnded, const UModularQuest*);
+/** Called when a quest ends */
+DECLARE_MULTICAST_DELEGATE_OneParam(FQuestEnded, const UModularQuest*);
+
+/** Notification delegate definition for when the quest is cancelled */
+DECLARE_MULTICAST_DELEGATE(FOnQuestCancelled);
+
+/** Called when a quest fails to activate, passes along the failed quest and a tag explaining why */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FQuestFailedDelegate, const UModularQuest*, const FGameplayTagContainer&);
+
+/** Notify interested parties that quest spec has been modified */
+DECLARE_MULTICAST_DELEGATE_OneParam(FQuestSpecDirtied, const FModularQuestSpec&);
+
+/** Notification delegate definition for when a quest evaluator finishes evaluation. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FQuestEvaluatorEvaluationEndedDelegate,
+	const UModularQuestEvaluator*, InEvaluator, const FQuestEvaluationResult&, InEvaluationResult);
+
+/** Generic delegate for condition 'events'/notifies */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGenericQuestConditionDelegate, const UModularQuestCondition*, InCondition);
+
+/** Notification delegate definition for when a quest condition evaluation ends */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FQuestConditionEvaluationEndedDelegate,
+	const UModularQuestCondition*, InCondition, const FQuestEvaluationResult&, InEvaluationResult);

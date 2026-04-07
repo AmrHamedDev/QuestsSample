@@ -249,7 +249,7 @@ public:
 	/** Called from the quest to let the component know it has failed to activate */
 	virtual void HandleQuestFailed(const FModularQuestSpecHandle Handle, const UModularQuest* Quest, const FGameplayTagContainer& FailureReason);
 	/** Called from the quest to let the component know it has ended */
-	virtual void HandleQuestEnded(FModularQuestSpecHandle Handle, const UModularQuest* Quest, bool bWasCancelled);
+	virtual void HandleQuestEnded(FModularQuestSpecHandle Handle, const UModularQuest* Quest, const EQuestEndResultType EndResult);
 	
 	/** A generic callback anytime a quest is activated (started) */
 	FGenericQuestDelegate QuestActivatedCallbacks;

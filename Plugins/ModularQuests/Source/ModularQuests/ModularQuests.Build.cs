@@ -39,7 +39,7 @@ public class ModularQuests : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"SlateCore",
+				"SlateCore", "OnlineServicesInterface",
 			}
 			);
 		

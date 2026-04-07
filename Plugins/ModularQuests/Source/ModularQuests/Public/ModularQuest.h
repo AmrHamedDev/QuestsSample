@@ -19,8 +19,8 @@ DECLARE_DELEGATE(FQuestPostLockDelegate);
  *	- Quest is Granted to an actor
  *	- Quest is requested for activation, which might succeed or fail based on activation requirements
  *	- Quest is Activated, its conditions/objectives start evaluating
- *		- Conditions can be evaluated simultaneously, or sequentially
- *		- Condition results are communicated with the quest, allowing the quest to decide whether it should end and how
+ *		- Conditions can be evaluated simultaneously, or sequentially based on the assigned Evaluator
+ *		- The Evaluator communicates changes with the quest, allowing the quest to decide whether it should end and how
  *	- Quest is Ended, this can mean it Succeeded, Failed, or Got Canceled
  *	- Quest can be Removed anytime after it was Granted
  *		- For example, if the player makes a branching decision that impacts this quest, it might make sense to remove it.
@@ -34,6 +34,12 @@ class MODULARQUESTS_API UModularQuest : public UObject
 
 public:
 	UModularQuest(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	// --------------------------------------
+	//	UObject overrides
+	// --------------------------------------	
+	virtual UWorld* GetWorld() const override;
+	
 
 	// --------------------------------------
 	//	Accessors
@@ -55,12 +61,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Quest)
 	UModularQuestsComponent* GetQuestsComponentFromActorInfo() const;
 
+	/** Returns the ModularQuestComponent that is activating this Quest and checks it's validity. */
+	UModularQuestsComponent* GetQuestsComponentFromActorInfoChecked() const;
+	
 	/** Retrieves the SourceObject associated with this quest. */
 	UFUNCTION(BlueprintCallable, Category = Quest)
 	UObject* GetCurrentSourceObject() const;
-	
-	/** Returns the ModularQuestComponent that is activating this Quest and checks it's validity. */
-	UModularQuestsComponent* GetQuestsComponentFromActorInfoChecked() const;
 
 	/** Gets the current QuestSpecHandle. */
 	FModularQuestSpecHandle GetCurrentQuestSpecHandle() const;
@@ -149,7 +155,19 @@ public:
 
 	/** Returns true if the quest is currently completed */
 	bool IsCompleted() const;
-	
+
+protected:
+	/**
+	 * Called once the associated evaluator finishes evaluation.
+	 * Ends the quest and calls the Blueprint Version by Default.
+	 */
+	UFUNCTION()
+	virtual void OnEvaluationEnded(const UModularQuestEvaluator* InEvaluator, const FQuestEvaluationResult& InEvaluationResult);
+
+	/** Called once the associated evaluator finishes evaluation. */
+	UFUNCTION(BlueprintImplementableEvent, Category = Quest, DisplayName = "OnEvaluationEnded", meta=(ScriptName = "OnEvaluationEnded"))
+	void K2_OnEvaluationEnded(const UModularQuestEvaluator* InEvaluator, const FQuestEvaluationResult& InEvaluationResult);
+
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif
@@ -200,7 +218,7 @@ protected:
 		const FModularQuestSpecHandle Handle,
 		const FModularQuestActorInfo* ActorInfo,
 		const FGameplayEventData* TriggerEventData);
-
+	
 	/** Do boilerplate init stuff and then call ActivateQuest */
 	virtual void PreActivate(
 		const FModularQuestSpecHandle Handle,
@@ -221,14 +239,14 @@ protected:
 	
 	/** Call from blueprints to end the quest without canceling it. */
 	UFUNCTION(BlueprintCallable, Category = Quest, DisplayName="End Quest", meta=(ScriptName = "EndQuest"))
-	virtual void K2_EndQuest();
+	virtual void K2_EndQuest(EQuestEndResultType EndResult);
 	
 	/** Blueprint event, will be called when a quest ends normally or abnormally */
 	UFUNCTION(BlueprintImplementableEvent, Category = Quest, DisplayName = "OnEndQuest", meta=(ScriptName = "OnEndQuest"))
-	void K2_OnEndQuest(bool bWasCancelled);
+	void K2_OnEndQuest(EQuestEndResultType EndResult);
 
 	/** Native function, called if a quest ends normally or abnormally. */
-	virtual void EndQuest(const FModularQuestSpecHandle Handle, const FModularQuestActorInfo* ActorInfo, bool bWasCancelled);
+	virtual void EndQuest(const FModularQuestSpecHandle Handle, const FModularQuestActorInfo* ActorInfo, const EQuestEndResultType EndResult = EQuestEndResultType::Unset);
 	
 	/** Check if the quest can be ended */
 	bool CanBeEnded(const FModularQuestSpecHandle Handle, const FModularQuestActorInfo* ActorInfo) const;
@@ -239,9 +257,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= Display)
 	FText Description;
-	
+
+	/** The Evaluator of this Quest, which has info about conditions and how they're evaluated. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= Config, Instanced)
-	TArray<TObjectPtr<UModularQuestCondition>> Conditions;
+	TObjectPtr<UModularQuestEvaluator> Evaluator;
 
 protected:
 	/** 
@@ -265,7 +284,7 @@ protected:
 	/** Notification that the quest has ended with data on how it was ended */
 	FQuestEndedDelegate OnQuestEndedWithData;
 
-	/** Notification that the quest is being cancelled.  Called before OnQuestEnded. */
+	/** Notification that the quest is being cancelled. Called before OnQuestEnded. */
 	FOnQuestCancelled OnQuestCancelled;
 
 private:
@@ -301,19 +320,19 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="OwnedTagsCategory"))
 	FGameplayTagContainer ActivationBlockedTags;
 
-	/** This Condition can only be activated if the source actor/component has all of these tags */
+	/** This quest can only be activated if the source actor/component has all of these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="SourceTagsCategory"))
 	FGameplayTagContainer SourceRequiredTags;
 
-	/** This Condition is blocked if the source actor/component has any of these tags */
+	/** This quest is blocked if the source actor/component has any of these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="SourceTagsCategory"))
 	FGameplayTagContainer SourceBlockedTags;
 	
-	/** This Condition can only be activated if the target actor/component has all of these tags */
+	/** This quest can only be activated if the target actor/component has all of these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="TargetTagsCategory"))
 	FGameplayTagContainer TargetRequiredTags;
 
-	/** This Condition is blocked if the target actor/component has any of these tags */
+	/** This quest is blocked if the target actor/component has any of these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, AdvancedDisplay, meta=(Categories="TargetTagsCategory"))
 	FGameplayTagContainer TargetBlockedTags;
 	

@@ -729,7 +729,7 @@ void UModularQuestsComponent::OnRemoveQuest(FModularQuestSpec& Spec)
 			if (Instance->IsActive())
 			{
 				// End the quest
-				Instance->EndQuest(Instance->CurrentSpecHandle, Instance->CurrentActorInfo, false);
+				Instance->EndQuest(Instance->CurrentSpecHandle, Instance->CurrentActorInfo, EQuestEndResultType::Unset);
 			}
 			else
 			{
@@ -842,7 +842,7 @@ void UModularQuestsComponent::HandleQuestFailed(const FModularQuestSpecHandle Ha
 void UModularQuestsComponent::HandleQuestEnded(
 	FModularQuestSpecHandle Handle,
 	const UModularQuest* Quest,
-	bool bWasCancelled)
+	const EQuestEndResultType EndResult)
 {
 	check(Quest);
 	FModularQuestSpec* Spec = FindQuestSpecFromHandle(Handle);
@@ -852,6 +852,7 @@ void UModularQuestsComponent::HandleQuestEnded(
 		return;
 	}
 
+	const bool bWasCancelled = EndResult == EQuestEndResultType::Canceled;
 	const FString DebugName = Spec->GetFirstInstance() ? Spec->GetFirstInstance()->GetName() : Quest->GetName();
 	QUEST_LOG(Log, TEXT("%s: Ended [%s] %s. WasCancelled: %d."), *GetNameSafe(GetOwner()), *Handle.ToString(), *DebugName, bWasCancelled);
 	UE_VLOG(GetOwner(), VLogModularQuests, Log, TEXT("Ended [%s] %s. WasCancelled: %d."), *Handle.ToString(), *DebugName, bWasCancelled);
@@ -871,7 +872,7 @@ void UModularQuestsComponent::HandleQuestEnded(
 	
 	// Broadcast that the quest ended
 	QuestEndedCallbacks.Broadcast(Quest);
-	OnQuestEnded.Broadcast(FQuestEndedData(Quest, Handle, bWasCancelled));
+	OnQuestEnded.Broadcast(FQuestEndedData(Quest, Handle, EndResult));
 	
 	// Above callbacks could have invalidated the Spec pointer, so find it again
 	Spec = FindQuestSpecFromHandle(Handle);

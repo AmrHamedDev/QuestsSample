@@ -14,7 +14,6 @@ class UModularQuest;
  *
  * A condition's lifetime typically looks like this:
  *	- Condition is Initialized, typically from a quest
- *	- Condition Evaluation is Requested, which might succeed immediately or fail based on target data
  *	- Condition Evaluation is Started, which means the condition is actively listening/tracking game state
  *	- Condition Updates are communicated, for example notifying about progress changes, etc.
  *	- Condition Evaluation is Ended, this can mean it Succeeded, Failed, or Got Canceled
@@ -27,20 +26,82 @@ class MODULARQUESTS_API UModularQuestCondition : public UObject
 {
 	GENERATED_BODY()
 
+	friend class UModularQuest;
+	
 public:
 	UModularQuestCondition(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-	
-	/** Returns whether this condition is satisfied or not. Can be overridden to create custom behavior. */
-	virtual bool IsSatisfied() const { return CurrentState == EQuestState::Completed; }
 
-	const TObjectPtr<UModularQuest>& GetQuest() const { return Quest; } 
+	// --------------------------------------
+	//	UObject overrides
+	// --------------------------------------	
+	virtual UWorld* GetWorld() const override;
+	
+public:
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category= Display)
+	FText GetDisplayName() const { return DisplayName; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category= Display)
+	FText GetDescription() const { return Description; }
 	
 	/** The condition is considered to have these tags. */
 	const FGameplayTagContainer& GetAssetTags() const;
+	
+	/** Returns whether this condition is satisfied or not. */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category= State)
+	virtual bool IsSatisfied() const { return false; }
+
+	/** Returns whether this condition is being evaluated or not. */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category= State)
+	bool IsActive() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category= State)
+	const UModularQuest* GetQuest() const; 
+
+	/**
+	 * Called to start evaluating the condition by the owning quest or evaluator. Do Not Call this Directly.
+	 * Can succeed or fail based on Evaluation Context and Current State.
+	 */
+	virtual bool TryStartEvaluation(const FQuestEvaluationContext& EvaluationContext);
+
+protected:
+	/** Returns true if this condition can start evaluation right now. Has no side effects */
+	UFUNCTION(BlueprintImplementableEvent, Category = Quest, DisplayName="CanStartEvaluation", meta=(ScriptName="CanStartEvaluation"))
+	bool K2_CanStartEvaluation(const FQuestEvaluationContext& EvaluationContext, FGameplayTagContainer& RelevantTags) const;
+	
+	/** Called when the condition starts evaluation. Usually to start listening to game state and begin evaluating the condition. */
+	UFUNCTION(BlueprintImplementableEvent, Category = Condition, DisplayName = "OnEvaluationStarted", meta=(ScriptName = "OnEvaluationStarted"))
+	void K2_OnEvaluationStarted(const FQuestEvaluationContext& EvaluationContext);
+
+
+	/** Call from Blueprint to cancel evaluation */
+	UFUNCTION(BlueprintCallable, Category = Condition, DisplayName = "CancelEvaluation", meta=(ScriptName = "CancelEvaluation"))
+	void K2_CancelEvaluation();
+	
+	/** Call from blueprints to end the evaluation with a failed state. */
+	UFUNCTION(BlueprintCallable, Category = Condition, DisplayName="FailEvaluation", meta=(ScriptName = "FailEvaluation"))
+	virtual void K2_FailEvaluation();
+	
+	/** Call from blueprints to end the evaluation with a succeeded state. */
+	UFUNCTION(BlueprintCallable, Category = Condition, DisplayName="SucceedEvaluation", meta=(ScriptName = "SucceedEvaluation"))
+	virtual void K2_SucceedEvaluation();
+	
+	/** Native function, called if evaluation ends with the end result. */
+	virtual void EndEvaluation(EQuestEndResultType InResult);
+
+	/** Check if the condition evaluation can be ended */
+	bool CanEndEvaluation() const;
+	
+	/** Blueprint event, will be called when evaluation ends normally or abnormally */
+	UFUNCTION(BlueprintImplementableEvent, Category = Condition, DisplayName = "OnEndEvaluation", meta=(ScriptName = "OnEndEvaluation"))
+	void K2_OnEndEvaluation(const FQuestEvaluationResult& EvaluationResult);
+
+	/** Called at Edit time to format the description of this condition. */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Display)
+	FText FormatDescription() const;
 
 public:
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	
 protected:
@@ -52,13 +113,28 @@ protected:
 	FText Description;
 
 protected:
-	/** The Quest owning this condition. */
+	/** Current evaluation context that contains useful data for evaluating this condition. */
 	UPROPERTY(BlueprintReadOnly, Category = State)
-	TObjectPtr<UModularQuest> Quest;
+	TOptional<FQuestEvaluationContext> CurrentEvaluationContext;
 
-	/** The current state of this condition. */
+	/** Quest owning this condition. */
 	UPROPERTY(BlueprintReadOnly, Category = State)
-	EQuestState CurrentState = EQuestState::NotStarted;
+	TObjectPtr<const UModularQuest> Quest;
+	
+public:
+	// #tbr_Amr: these shouldn't be public
+	
+	/** Notification that the condition evaluation has started. */
+	UPROPERTY(BlueprintAssignable, Category= Events)
+	FGenericQuestConditionDelegate OnConditionEvaluationStarted;
+
+	/** Notification that the condition evaluation has changed. */
+	UPROPERTY(BlueprintAssignable, Category= Events)
+	FGenericQuestConditionDelegate OnConditionEvaluationChanged;
+
+	/** Notification that the condition evaluation has ended with data on how it ended. */
+	UPROPERTY(BlueprintAssignable, Category= Events)
+	FQuestConditionEvaluationEndedDelegate OnConditionEvaluationEnded;
 
 protected:
 	/**
@@ -71,4 +147,5 @@ private:
 	/** This Condition has these tags */
 	UPROPERTY(EditDefaultsOnly, Category = Tags, meta=(Categories="ConditionTagCategory", DisplayName="Condition Tags"))
 	FGameplayTagContainer AssetTags;
+	
 };

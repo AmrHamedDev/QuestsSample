@@ -80,11 +80,11 @@ struct FModularQuestSpecDef
 	GENERATED_USTRUCT_BODY()
 
 	/** What quest to grant */
-	UPROPERTY(EditDefaultsOnly, Category="Quest Definition", NotReplicated)
+	UPROPERTY(EditDefaultsOnly, Category="Quest Definition")
 	TSubclassOf<UModularQuest> Quest;
 
 	/** What granted this spec, not replicated or settable in editor */
-	UPROPERTY(NotReplicated)
+	UPROPERTY()
 	TWeakObjectPtr<UObject> SourceObject;
 
 	/** This handle can be set if the SpecDef is used to create a real FModularQuestSpec */
